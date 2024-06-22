@@ -20,7 +20,7 @@ const WAIT_FOR_GITHUB_API_TO_NOT_THROW_409_MS = 500;
 const api = getBrowser();
 
 const getPath = (problem, filename) => {
-  return filename ? `${problem}/${filename}` : problem;
+  return filename ? `leetcode/${problem}/${filename}` : problem;
 };
 
 /* Main function for uploading code to GitHub repo, and callback cb is called if success */
