@@ -9,7 +9,7 @@ const updateReadmeMsg = 'Update README - Topic Tags';
 const discussionMsg = 'Prepend discussion post - LeetHub';
 const createNotesMsg = 'Attach NOTES - LeetHub';
 const defaultRepoReadme =
-  'A collection of LeetCode questions to ace the coding interview! - Created using [LeetHub v2](https://github.com/arunbhardwaj/LeetHub-2.0)';
+  'A collection of LeetCode questions to ace the coding interview! - Created using [LeetHub v2](https://github.com/ohsungsik/LeetHub-2.0)';
 
 // problem types
 const NORMAL_PROBLEM = 0;
