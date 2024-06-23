@@ -8,7 +8,7 @@ LeetHub 2.0 is a Chrome extension that automatically syncs your LeetCode solutio
 - Customizable push frequency and repository structure.
 
 ## Changes in this Fork
-- New Upload Location: Solutions are now uploaded to the leetcode folder in your repository.
+- New Upload Location: Solutions are now uploaded to the leetcode/problem difficulty (Easy, Medium, Hard, Unknown) folder in your repository.
 
 ## Installation
 - Run "npm run setup" to install the developer dependencies

@@ -2,8 +2,8 @@ const leetCodeSectionStart = `<!---LeetCode Topics Start-->`;
 const leetCodeSectionHeader = `# LeetCode Topics`;
 const leetCodeSectionEnd = `<!---LeetCode Topics End-->`;
 
-function appendProblemToReadme(topic, markdownFile, hook, problem) {
-  const url = `https://github.com/${hook}/tree/master/${problem}`;
+function appendProblemToReadme(topic, markdownFile, hook, difficulty, problem) {
+  const url = `https://github.com/${hook}/tree/master/leetcode/${difficulty}/${problem}`;
   const topicHeader = `## ${topic}`;
   const topicTableHeader = `\n${topicHeader}\n|  |\n| ------- |\n`;
   const newRow = `| [${problem}](${url}) |`;
@@ -35,7 +35,13 @@ function appendProblemToReadme(topic, markdownFile, hook, problem) {
   }
 
   // Get the Topic table
-  const endTopicString = markdownFile.slice(topicTableIndex).match(/\|\n[^|]/)[0];
+  const topicSlice = markdownFile.slice(topicTableIndex);
+  const endTopicMatch = topicSlice.match(/\|\n[^|]/);
+  if (!endTopicMatch) {
+    console.error('No match found for the end of the topic table. Check the markdown format.');
+    return markdownFile; // Return the original markdown file if no match is found
+  }
+  const endTopicString = endTopicMatch[0];
   const endTopicIndex = leetCodeSection.indexOf(endTopicString, topicTableIndex + 1);
   let topicTable =
     endTopicIndex === -1

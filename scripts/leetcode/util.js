@@ -41,10 +41,11 @@ class LeetHubError extends Error {
 }
 
 class RepoReadmeNotFoundErr extends LeetHubError {
-  constructor(message, topicTags, problemName) {
+  constructor(message, topicTags, problemName, difficulty) {
     super(message);
     this.topicTags = topicTags;
     this.problemName = problemName;
+    this.difficulty = difficulty;
   }
 }
 

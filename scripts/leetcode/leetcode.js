@@ -19,13 +19,13 @@ const WAIT_FOR_GITHUB_API_TO_NOT_THROW_409_MS = 500;
 
 const api = getBrowser();
 
-const getPath = (problem, filename) => {
-  return filename ? `leetcode/${problem}/${filename}` : problem;
+const getPath = (difficulty, problem, filename) => {
+  return filename ? `leetcode/${difficulty}/${problem}/${filename}` : `leetcode/${difficulty}/${problem}`;
 };
 
 /* Main function for uploading code to GitHub repo, and callback cb is called if success */
-const upload = (token, hook, code, problem, filename, sha, commitMsg, cb = undefined) => {
-  const path = getPath(problem, filename);
+const upload = (token, hook, code, difficulty, problem, filename, sha, commitMsg, cb = undefined) => {
+  const path = getPath(difficulty, problem, filename);
   const URL = `https://api.github.com/repos/${hook}/contents/${path}`;
 
   /* Define Payload */
@@ -56,19 +56,19 @@ const upload = (token, hook, code, problem, filename, sha, commitMsg, cb = undef
     })
     .then(async body => {
       updatedSha = body.content.sha; // get updated SHA.
-      const stats = await getAndInitializeStats(problem);
-      stats.shas[problem][filename] = updatedSha;
+      const stats = await getAndInitializeStats(difficulty, problem);
+      stats.shas['leetcode'][difficulty][problem][filename] = updatedSha;
       return api.storage.local.set({ stats });
     })
     .then(() => {
-      console.log(`Successfully committed ${getPath(problem, filename)} to github`);
+      console.log(`Successfully committed ${getPath(difficulty, problem, filename)} to github`);
       if (cb) {
         cb();
       }
     });
 };
 
-const getAndInitializeStats = problem => {
+const getAndInitializeStats = (difficulty, problem) => {
   return api.storage.local.get('stats').then(({ stats }) => {
     if (stats == null || isEmpty(stats)) {
       // create stats object
@@ -80,8 +80,16 @@ const getAndInitializeStats = problem => {
       stats.shas = {};
     }
 
-    if (stats.shas[problem] == null) {
-      stats.shas[problem] = {};
+    if (!stats.shas['leetcode']) {
+      stats.shas['leetcode'] = {};
+    }
+
+    if (!stats.shas['leetcode'][difficulty]) {
+      stats.shas['leetcode'][difficulty] = {};
+    }
+
+    if (!stats.shas['leetcode'][difficulty][problem]) {
+      stats.shas['leetcode'][difficulty][problem] = {};
     }
 
     return stats;
@@ -98,9 +106,9 @@ const incrementStats = difficulty => {
   });
 };
 
-const checkAlreadyCompleted = problemName => {
+const checkAlreadyCompleted = (difficulty, problemName) => {
   return api.storage.local.get('stats').then(({ stats }) => {
-    if (stats?.shas?.[problemName] == null) {
+    if (stats?.shas?.['leetcode']?.[difficulty]?.[problemName] == null) {
       return false;
     }
     return true;
@@ -114,6 +122,7 @@ const checkAlreadyCompleted = problemName => {
 const update = (
   token,
   hook,
+  difficulty,
   addition,
   directory,
   filename,
@@ -122,7 +131,7 @@ const update = (
   cb = undefined,
 ) => {
   let responseSHA;
-  return getUpdatedData(token, hook, directory, filename)
+  return getUpdatedData(token, hook, difficulty, directory, filename)
     .then(data => {
       responseSHA = data.sha;
       return decodeURIComponent(escape(atob(data.content)));
@@ -130,21 +139,22 @@ const update = (
     .then(existingContent =>
       shouldPreprendDiscussionPosts
         ? // https://web.archive.org/web/20190623091645/https://monsur.hossa.in/2012/07/20/utf-8-in-javascript.html
-          // In order to preserve mutation of the data, we have to encode it, which is usually done in base64.
-          // But btoa only accepts ASCII 7 bit chars (0-127) while Javascript uses 16-bit minimum chars (0-65535).
-          // EncodeURIComponent converts the Unicode Points UTF-8 bits to hex UTF-8.
-          // Unescape converts percent-encoded hex values into regular ASCII (optional; it shrinks string size).
-          // btoa converts ASCII to base64.
-          btoa(unescape(encodeURIComponent(addition + existingContent)))
+        // In order to preserve mutation of the data, we have to encode it, which is usually done in base64.
+        // But btoa only accepts ASCII 7 bit chars (0-127) while Javascript uses 16-bit minimum chars (0-65535).
+        // EncodeURIComponent converts the Unicode Points UTF-8 bits to hex UTF-8.
+        // Unescape converts percent-encoded hex values into regular ASCII (optional; it shrinks string size).
+        // btoa converts ASCII to base64.
+        btoa(unescape(encodeURIComponent(addition + existingContent)))
         : btoa(unescape(encodeURIComponent(existingContent))),
     )
     .then(newContent =>
-      upload(token, hook, newContent, directory, filename, responseSHA, commitMsg, cb),
+      upload(token, hook, newContent, difficulty, directory, filename, responseSHA, commitMsg, cb),
     );
 };
 
 function uploadGit(
   code,
+  difficulty,
   problemName,
   fileName,
   commitMsg,
@@ -181,15 +191,16 @@ function uploadGit(
       if (action === 'upload') {
         /* Get SHA, if it exists */
         const sha =
-          stats?.shas?.[problemName]?.[fileName] !== undefined
-            ? stats.shas[problemName][fileName]
+          stats?.shas?.['leetcode']?.[difficulty]?.[problemName]?.[fileName] !== undefined
+            ? stats.shas['leetcode'][difficulty][problemName][fileName]
             : '';
 
-        return upload(token, hook, code, problemName, fileName, sha, commitMsg, cb);
+        return upload(token, hook, code, difficulty, problemName, fileName, sha, commitMsg, cb);
       } else if (action === 'update') {
         return update(
           token,
           hook,
+          difficulty,
           code,
           problemName,
           fileName,
@@ -201,21 +212,21 @@ function uploadGit(
     })
     .catch(err => {
       if (err.message === '409') {
-        return getUpdatedData(token, hook, problemName, fileName);
+        return getUpdatedData(token, hook, difficulty, problemName, fileName);
       } else {
         throw err;
       }
     })
     .then(data =>
       data != null // if it isn't null, then we didn't uplaod successfully the first time, and must have retrieved new data and reuploaded
-        ? upload(token, hook, code, problemName, fileName, data.sha, commitMsg, cb)
+        ? upload(token, hook, code, difficulty, problemName, fileName, data.sha, commitMsg, cb)
         : undefined,
     );
 }
 
 /* Gets updated GitHub data for the specific file in repo in question */
-async function getUpdatedData(token, hook, directory, filename) {
-  const path = getPath(directory, filename);
+async function getUpdatedData(token, hook, difficulty, directory, filename) {
+  const path = getPath(difficulty, directory, filename);
   const URL = `https://api.github.com/repos/${hook}/contents/${path}`;
 
   let options = {
@@ -259,18 +270,18 @@ document.addEventListener('click', event => {
         const addition = `[Discussion Post (created on ${currentDate})](${window.location})  \n`;
         const problemName = window.location.pathname.split('/')[2]; // must be true.
 
-        uploadGit(addition, problemName, 'README.md', discussionMsg, 'update', true);
+        uploadGit(addition, difficulty, problemName, 'README.md', discussionMsg, 'update', true);
       }
     }, 1000);
   }
 });
 
-function createRepoReadme() {
+function createRepoReadme(difficulty) {
   const content = btoa(unescape(encodeURIComponent(defaultRepoReadme)));
-  return uploadGit(content, 'README.md', '', readmeMsg, 'upload');
+  return uploadGit(content, difficulty, 'README.md', '', readmeMsg, 'upload');
 }
 
-async function updateReadmeTopicTagsWithProblem(topicTags, problemName) {
+async function updateReadmeTopicTagsWithProblem(topicTags, difficulty, problemName) {
   if (topicTags == null) {
     console.log(new LeetHubError('TopicTagsNotFound'));
     return;
@@ -283,24 +294,24 @@ async function updateReadmeTopicTagsWithProblem(topicTags, problemName) {
   ]);
   let readme;
   try {
-    const { content } = await getUpdatedData(leethub_token, leethub_hook, 'README.md');
+    const { content } = await getUpdatedData(leethub_token, leethub_hook, difficulty, 'README.md');
     readme = content;
   } catch (err) {
     if (err.message === '404') {
-      throw new RepoReadmeNotFoundErr('RepoReadmeNotFound', topicTags, problemName);
+      throw new RepoReadmeNotFoundErr('RepoReadmeNotFound', topicTags, problemName, difficulty);
     }
 
     throw err;
   }
   readme = decodeURIComponent(escape(atob(readme)));
   for (let topic of topicTags) {
-    readme = appendProblemToReadme(topic.name, readme, leethub_hook, problemName);
+    readme = appendProblemToReadme(topic.name, readme, leethub_hook, difficulty, problemName);
   }
   readme = sortTopicsInReadme(readme);
   readme = btoa(unescape(encodeURIComponent(readme)));
   return new Promise((resolve, reject) =>
     setTimeout(
-      () => resolve(uploadGit(readme, 'README.md', '', updateReadmeMsg, 'upload')),
+      () => resolve(uploadGit(readme, difficulty, 'README.md', '', updateReadmeMsg, 'upload')),
       WAIT_FOR_GITHUB_API_TO_NOT_THROW_409_MS,
     ),
   );
@@ -370,11 +381,12 @@ const loader = leetCode => {
 
       /* Upload README */
       const updateReadMe = await api.storage.local.get('stats').then(({ stats }) => {
-        const shaExists = stats?.shas?.[problemName]?.['README.md'] !== undefined;
+        const shaExists = stats?.shas?.['leetcode']?.[leetCode.difficulty]?.[problemName]?.['README.md'] !== undefined;
 
         if (!shaExists) {
           return uploadGit(
             btoa(unescape(encodeURIComponent(probStatement))),
+            leetCode.difficulty,
             problemName,
             'README.md',
             readmeMsg,
@@ -390,6 +402,7 @@ const loader = leetCode => {
       if (notes != undefined && notes.length > 0) {
         updateNotes = uploadGit(
           btoa(unescape(encodeURIComponent(notes))),
+          leetCode.difficulty,
           problemName,
           'NOTES.md',
           createNotesMsg,
@@ -402,6 +415,7 @@ const loader = leetCode => {
       const code = leetCode.findCode(probStats);
       const updateCode = uploadGit(
         btoa(unescape(encodeURIComponent(code))),
+        leetCode.difficulty,
         problemName,
         filename,
         probStats,
@@ -413,6 +427,7 @@ const loader = leetCode => {
       let updateRepoReadme = updateReadmeTopicTagsWithProblem(
         leetCode.submissionData?.question?.topicTags,
         problemName,
+        leetCode.difficulty
       );
 
       await Promise.all([updateReadMe, updateNotes, updateCode, updateRepoReadme]);
@@ -432,10 +447,10 @@ const loader = leetCode => {
       }
 
       if (err instanceof RepoReadmeNotFoundErr) {
-        await createRepoReadme();
+        await createRepoReadme(err.difficulty);
         await new Promise(resolve => {
           setTimeout(
-            () => resolve(updateReadmeTopicTagsWithProblem(err.topicTags, err.problemName)),
+            () => resolve(updateReadmeTopicTagsWithProblem(err.topicTags, err.difficulty, err.problemName)),
             WAIT_FOR_GITHUB_API_TO_NOT_THROW_409_MS,
           );
         });
@@ -473,8 +488,8 @@ const observer = new MutationObserver(function (_mutations, observer) {
     textareaList.length === 4
       ? textareaList[2]
       : textareaList.length === 2
-      ? textareaList[0]
-      : textareaList[1];
+        ? textareaList[0]
+        : textareaList[1];
 
   if (v1SubmitBtn) {
     observer.disconnect();
