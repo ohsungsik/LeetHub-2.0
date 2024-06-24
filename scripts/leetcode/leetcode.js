@@ -426,8 +426,8 @@ const loader = leetCode => {
       /* Group problem into its relevant topics */
       let updateRepoReadme = updateReadmeTopicTagsWithProblem(
         leetCode.submissionData?.question?.topicTags,
-        problemName,
-        leetCode.difficulty
+        leetCode.difficulty,
+        problemName
       );
 
       await Promise.all([updateReadMe, updateNotes, updateCode, updateRepoReadme]);
